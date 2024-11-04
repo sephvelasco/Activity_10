@@ -1,0 +1,78 @@
+---
+ - name: Add GPG key for ElasticSearch (Ubuntu)
+   tags: ubuntu
+   apt_key:
+     url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+     state: present
+   when: ansible_distribution == "Ubuntu"
+
+ - name: Allow Port 9200 through Firewall (CentOS)
+   firewalld:
+     zone: public
+     port: 9200/tcp
+     permanent: yes
+     state: enabled
+     immediate: yes
+   when: ansible_distribution == "CentOS"
+
+ - name: Allow Port 9200 through Firewall (Ubuntu)
+   ufw:
+     rule: allow
+     port: 9200
+     proto: tcp
+   when: ansible_distribution == "Ubuntu"
+
+ - name: Add ElasticSearch to APT repository (Ubuntu)
+   tags: ubuntu
+   apt_repository:
+     repo: "deb https://artifacts.elastic.co/packages/7.x/apt stable main"
+     #filename: 'elastic-7.x'
+   when: ansible_distribution == "Ubuntu"
+
+ - name: Install ElasticSearch to Yum repository (CentOS)
+   yum_repository:
+     name: elasticsearch
+     description: ElasticSearch Repository
+     baseurl: https://artifacts.elastic.co/packages/7.x/yum
+     gpgcheck: yes
+     gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+     enabled: yes
+   when: ansible_distribution == "CentOS"
+
+ - name: Configure ElasticSearch
+   blockinfile:
+     path: /etc/elasticsearch/elasticsearch.yml
+     block: |
+       # ElasticSearch Configuration
+       
+       cluster.name: my-cluster
+       node.name: dev-node-1
+       network.host: 0.0.0.0
+       http.port: 9200
+       discovery.type: single-node
+       path.data: /var/lib/elasticsearch
+       path.logs: /var/log/elasticsearch
+       bootstrap.memory_lock: true
+     state: present
+     create: yes
+
+ - name: Install ElasticSearch Kibana LogStash
+   tags: ubuntu
+   package:
+     name: 
+       - elasticsearch
+       - kibana
+       - logstash
+     state: latest
+
+ - name: Enable ElasticSearch, Kibana, & LogStash Service
+   vars:
+     elastic_services:
+       - elasticsearch
+       - kibana
+       - logstash
+   service:
+      name: "{{ item }}"
+      enabled: yes
+      state: started
+   loop: "{{ elastic_services }}"
